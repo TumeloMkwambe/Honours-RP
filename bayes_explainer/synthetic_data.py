@@ -2,7 +2,7 @@ import random
 import numpy as np
 from pgmpy.models import LinearGaussianBayesianNetwork
 
-class Ground:
+class SyntheticData:
     def __init__(self, num_datasets):
         '''
         Agrs:
