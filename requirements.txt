@@ -1,2 +1,3 @@
 numpy==1.26.4
 pgmpy==1.0.0
+matplotlib=3.10.5

@@ -1,2 +1,5 @@
-from bayes_explainer.build_model import add_one
+from bayes_explainer.synthetic_data import SyntheticData
 
+if __name__ == "__main__":
+    training = SyntheticData("training")
+    training.save_edges()
