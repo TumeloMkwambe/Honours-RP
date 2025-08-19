@@ -27,7 +27,7 @@ class SyntheticData:
         '''
 
         num_nodes = random.randint(3, 5)
-        edge_probability = random.random()
+        edge_probability = random.uniform(0, 0.5) # plausible way to regulate in-degree per node
         model = LinearGaussianBayesianNetwork.get_random(n_nodes=num_nodes, edge_prob=edge_probability, latents=False)
         return model
 
