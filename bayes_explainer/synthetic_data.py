@@ -67,6 +67,7 @@ class SyntheticData:
             self.dataset.append(datapoint)
     
     def save(self) -> None:
+        
         '''
         Objetive: saves Linear Gaussian Bayesian Network model and dataset.
         '''
