@@ -1,6 +1,7 @@
 import os
 import random
 import numpy as np
+import networkx as nx
 from pgmpy.models import LinearGaussianBayesianNetwork
 
 class SyntheticData:
@@ -14,8 +15,7 @@ class SyntheticData:
 
         self.name = name
         self.model = self.create_network()
-        
-        pass
+        self.dataset = [] # rows are instances, columns are variables
 
     def create_network(self) -> LinearGaussianBayesianNetwork:
 
@@ -26,7 +26,6 @@ class SyntheticData:
         num_nodes = random.randint(3, 5)
         edge_probability = random.random()
         model = LinearGaussianBayesianNetwork.get_random(n_nodes=num_nodes, edge_prob=edge_probability, latents=False)
-
         return model
 
     def save_edges(self) -> None:
@@ -47,7 +46,7 @@ class SyntheticData:
         Objective: performs forward sampling to generate a single particle.
         '''
 
-        order = self.model.nodes()
+        order = nx.topological_sort(self.model)
         particle = {}
         
         for node in order:
@@ -69,4 +68,10 @@ class SyntheticData:
         Objective: uses forward sampling to create dataset representative of the network.
         '''
 
-        pass
+        N = 2 ** (len(self.model.nodes()) + 2)
+
+        for n in range(N):
+            sample = self.forward_sample()
+            datapoint = np.array([sample[key] for key in sample])
+            self.dataset.append(datapoint)
+        
