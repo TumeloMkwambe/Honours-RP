@@ -1,6 +1,9 @@
+from typing import Dict
+
 import os
 import random
 import numpy as np
+import pandas as pd
 import networkx as nx
 from pgmpy.models import LinearGaussianBayesianNetwork
 
@@ -28,19 +31,7 @@ class SyntheticData:
         model = LinearGaussianBayesianNetwork.get_random(n_nodes=num_nodes, edge_prob=edge_probability, latents=False)
         return model
 
-    def save_edges(self) -> None:
-        
-        '''
-        Objective: saves edges of model in a text file under the structures directory.
-        '''
-
-        filename = os.path.join("structures", f"{self.name}.txt")
-
-        with open(filename, "w") as file:
-            for parent, child in self.model.edges():
-                file.write(f"{parent}:{child}\n")
-
-    def forward_sample(self) -> dict:
+    def forward_sample(self) -> Dict:
 
         '''
         Objective: performs forward sampling to generate a single particle.
@@ -74,4 +65,18 @@ class SyntheticData:
             sample = self.forward_sample()
             datapoint = np.array([sample[key] for key in sample])
             self.dataset.append(datapoint)
-        
+    
+    def save(self) -> None:
+        '''
+        Objetive: saves Linear Gaussian Bayesian Network model and dataset.
+        '''
+
+        data_filename = os.path.join("data", f"{self.name}.csv")
+        data_frame = pd.DataFrame(np.array(self.dataset), columns=list(self.model.nodes()))
+        data_frame.to_csv(data_filename, index=False)
+    
+        structure_filename = os.path.join("structures", f"{self.name}.txt")
+
+        with open(structure_filename, "w") as file:
+            for node in self.model.nodes():
+                file.write(f"{node}:{self.model.get_children(node)}\n")
