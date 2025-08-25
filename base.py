@@ -1,5 +1,5 @@
 import numpy as np
-from bayes_explainer.synthetic_data import SyntheticData
+from mlp_explainer.synthetic_data import SyntheticData
 
 
 if __name__ == "__main__":
