@@ -31,7 +31,7 @@ class BuildModel:
 
     def data_splits(self, data : pd.core.frame.DataFrame) -> list:
     
-        target_idx = random.randint(0, data.shape[1])
+        target_idx = random.randint(0, data.shape[1] - 1)
 
         setattr(self, 'target', data.columns[target_idx])
         setattr(self, 'features', [np.delete(data.columns.to_numpy(), target_idx, axis = 0)])
@@ -65,7 +65,7 @@ class BuildModel:
 
         self.model = self.model.to(device)
         loss_function = nn.MSELoss()
-        optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
 
         for epoch in range(num_epochs):
             self.model.train()

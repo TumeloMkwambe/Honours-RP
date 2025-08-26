@@ -14,9 +14,9 @@ class SyntheticData:
                also contains methods to save network structure information and dataset.
     '''
     
-    def __init__(self, name : str):
+    def __init__(self, identifier : str):
 
-        self.name = name
+        self.identifier = identifier
         self.model = self.__create_network()
         self.dataset = [] # rows are instances, columns are variables
 
@@ -26,7 +26,7 @@ class SyntheticData:
         Objective: creates a Linear Gaussian Bayesian Network with random structure and parameters.
         '''
 
-        num_nodes = random.randint(3, 5)
+        num_nodes = random.randint(8, 20)
         edge_probability = random.uniform(0, 0.5) # plausible way to regulate in-degree per node
         model = LinearGaussianBayesianNetwork.get_random(n_nodes=num_nodes, edge_prob=edge_probability, latents=False)
         return model
@@ -72,11 +72,11 @@ class SyntheticData:
         Objetive: saves Linear Gaussian Bayesian Network model and dataset.
         '''
 
-        data_filename = os.path.join("data", f"{self.name}_dataset.csv")
+        data_filename = os.path.join("data", f"{self.identifier}_dataset.csv")
         data_frame = pd.DataFrame(np.array(self.dataset), columns=list(self.model.nodes()))
         data_frame.to_csv(data_filename, index=False)
     
-        structure_filename = os.path.join("structures", f"{self.name}_ground.txt")
+        structure_filename = os.path.join("structures", f"{self.identifier}_ground.txt")
 
         with open(structure_filename, "w") as file:
             for node in self.model.nodes():
