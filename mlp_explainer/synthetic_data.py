@@ -17,10 +17,10 @@ class SyntheticData:
     def __init__(self, name : str):
 
         self.name = name
-        self.model = self.create_network()
+        self.model = self.__create_network()
         self.dataset = [] # rows are instances, columns are variables
 
-    def create_network(self) -> LinearGaussianBayesianNetwork:
+    def __create_network(self) -> LinearGaussianBayesianNetwork:
 
         '''
         Objective: creates a Linear Gaussian Bayesian Network with random structure and parameters.
@@ -31,7 +31,7 @@ class SyntheticData:
         model = LinearGaussianBayesianNetwork.get_random(n_nodes=num_nodes, edge_prob=edge_probability, latents=False)
         return model
 
-    def forward_sample(self) -> Dict:
+    def __forward_sample(self) -> Dict:
 
         '''
         Objective: performs forward sampling to generate a single particle.
@@ -62,7 +62,7 @@ class SyntheticData:
         N = 2 ** (len(self.model.nodes()) + 2)
 
         for n in range(N):
-            sample = self.forward_sample()
+            sample = self.__forward_sample()
             datapoint = np.array([sample[key] for key in sample])
             self.dataset.append(datapoint)
     
@@ -72,11 +72,11 @@ class SyntheticData:
         Objetive: saves Linear Gaussian Bayesian Network model and dataset.
         '''
 
-        data_filename = os.path.join("data", f"{self.name}.csv")
+        data_filename = os.path.join("data", f"{self.name}_dataset.csv")
         data_frame = pd.DataFrame(np.array(self.dataset), columns=list(self.model.nodes()))
         data_frame.to_csv(data_filename, index=False)
     
-        structure_filename = os.path.join("structures", f"{self.name}.txt")
+        structure_filename = os.path.join("structures", f"{self.name}_ground.txt")
 
         with open(structure_filename, "w") as file:
             for node in self.model.nodes():
