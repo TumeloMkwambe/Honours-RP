@@ -1,11 +1,14 @@
 from typing import Dict
 
 import os
+import pickle
 import random
 import numpy as np
 import pandas as pd
 import networkx as nx
+import matplotlib.pyplot as plt
 from pgmpy.models import LinearGaussianBayesianNetwork
+from networkx.drawing.nx_agraph import graphviz_layout
 
 class SyntheticData:
 
@@ -14,11 +17,11 @@ class SyntheticData:
                also contains methods to save network structure information and dataset.
     '''
     
-    def __init__(self, identifier : str):
+    def __init__(self, identifier):
 
         self.identifier = identifier
         self.model = self.__create_network()
-        self.dataset = [] # rows are instances, columns are variables
+        self.dataset = [] 
 
     def __create_network(self) -> LinearGaussianBayesianNetwork:
 
@@ -26,7 +29,7 @@ class SyntheticData:
         Objective: creates a Linear Gaussian Bayesian Network with random structure and parameters.
         '''
 
-        num_nodes = random.randint(8, 20)
+        num_nodes = random.randint(5, 25)
         edge_probability = random.uniform(0, 0.5) # plausible way to regulate in-degree per node
         model = LinearGaussianBayesianNetwork.get_random(n_nodes=num_nodes, edge_prob=edge_probability, latents=False)
         return model
@@ -65,6 +68,29 @@ class SyntheticData:
             sample = self.__forward_sample()
             datapoint = np.array([sample[key] for key in sample])
             self.dataset.append(datapoint)
+
+    def draw_network(self) -> None:
+
+        DAG = nx.DiGraph()
+        DAG.add_nodes_from(self.model.nodes())
+        DAG.add_edges_from(self.model.edges())
+
+        pos = graphviz_layout(DAG, prog="dot")
+        
+        nx.draw(
+            DAG,
+            pos,
+            with_labels = True,
+            node_size = 2000,
+            node_color = "lightblue",
+            arrowsize = 20,
+            font_size = 12,
+            font_weight = "bold"
+        )
+
+        structure_filename = os.path.join("networks", f"{self.identifier}_ground_network.png")
+        plt.savefig(structure_filename, bbox_inches = "tight")
+        plt.show()
     
     def save(self) -> None:
         
@@ -72,12 +98,11 @@ class SyntheticData:
         Objetive: saves Linear Gaussian Bayesian Network model and dataset.
         '''
 
-        data_filename = os.path.join("data", f"{self.identifier}_dataset.csv")
+        data_filename = os.path.join("data", f"{self.identifier}_ground_data.csv")
         data_frame = pd.DataFrame(np.array(self.dataset), columns=list(self.model.nodes()))
         data_frame.to_csv(data_filename, index=False)
-    
-        structure_filename = os.path.join("structures", f"{self.identifier}_ground.txt")
 
-        with open(structure_filename, "w") as file:
-            for node in self.model.nodes():
-                file.write(f"{node}:{self.model.get_children(node)}\n")
+        network_filename = os.path.join("networks", f"{self.identifier}_ground_network.pkl")
+
+        with open(network_filename, "wb") as f:
+            pickle.dump(self.model, f)
