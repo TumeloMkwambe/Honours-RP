@@ -21,9 +21,11 @@ The following dependencies are required and will be installed automatically in t
 
 ## Setup Instructions
 
-### 1. Create the Environment
+### 1. Setup Environment & Install Dependencies
 To create a new Conda environment with Python 3.12:
 ```bash
+
+### 1. Creates conda environment
 make venv
 
 ### 2. Activate Conda Environment
@@ -31,6 +33,3 @@ conda activate venv
 
 ### 3. Install Dependencies
 make install
-
-### 4. Remove the environment
-make clean
