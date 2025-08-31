@@ -29,10 +29,16 @@ class SyntheticData:
         Objective: creates a Linear Gaussian Bayesian Network with random structure and parameters.
         '''
 
-        num_nodes = random.randint(5, 25)
-        edge_probability = random.uniform(0, 0.5) # plausible way to regulate in-degree per node
-        model = LinearGaussianBayesianNetwork.get_random(n_nodes=num_nodes, edge_prob=edge_probability, latents=False)
-        return model
+        network_filename = os.path.join("networks", f"{self.identifier}_ground_network.pkl")
+
+        if os.path.exists(network_filename):
+            with open(network_filename, 'rb') as file:
+                return pickle.load(file)
+
+        else:
+            num_nodes = random.randint(5, 25)
+            edge_probability = random.uniform(0, 0.5) # plausible way to regulate in-degree per node
+            return LinearGaussianBayesianNetwork.get_random(n_nodes = num_nodes, edge_prob = edge_probability, latents = False)
 
     def __forward_sample(self) -> Dict:
 
@@ -99,10 +105,18 @@ class SyntheticData:
         '''
 
         data_filename = os.path.join("data", f"{self.identifier}_ground_data.csv")
-        data_frame = pd.DataFrame(np.array(self.dataset), columns=list(self.model.nodes()))
-        data_frame.to_csv(data_filename, index=False)
-
         network_filename = os.path.join("networks", f"{self.identifier}_ground_network.pkl")
 
-        with open(network_filename, "wb") as f:
-            pickle.dump(self.model, f)
+        if os.path.exists(data_filename):
+            print(f"Aborting: {self.identifier} dataset already exists.")
+        
+        else:
+            data_frame = pd.DataFrame(np.array(self.dataset), columns=list(self.model.nodes()))
+            data_frame.to_csv(data_filename, index=False)
+
+        if os.path.exists(network_filename):
+            print(f"Aborting: {self.identifier} ground truth network already exists.")
+        
+        else:
+            with open(network_filename, "wb") as f:
+                pickle.dump(self.model, f)

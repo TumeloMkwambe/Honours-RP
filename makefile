@@ -1,9 +1,10 @@
-ENV_NAME = virenv
+ENV_NAME = venv
 PYTHON_VERSION = 3.12
 
 .PHONY: venv
 venv:
 	conda create -y -n $(ENV_NAME) python=$(PYTHON_VERSION)
+	conda install -y -n $(ENV_NAME) -c conda-forge pygraphviz
 
 .PHONY: install
 install: venv
