@@ -1,10 +1,6 @@
-import copy
 import numpy as np
 import pandas as pd
-import networkx as nx
-import matplotlib.pyplot as plt
 from pgmpy.estimators import PC, HillClimbSearch, GES
-from networkx.drawing.nx_agraph import graphviz_layout
 
 
 class MLPExplainer:
@@ -12,7 +8,7 @@ class MLPExplainer:
         self.__mlp = mlp
         self.target_node = target_node
 
-        self.generated_bn = None
+        self.bn = None
         self.__X = None
         self.__Y = None
 
@@ -62,46 +58,9 @@ class MLPExplainer:
         dataframe[self.target_node] = self.__Y
 
         est = HillClimbSearch(data = dataframe)
-        self.generated_bn = est.estimate(scoring_method = "bic-g", max_indegree = 5, max_iter = int(1e4))
+        self.bn = est.estimate(scoring_method = "bic-g", max_indegree = 5, max_iter = int(1e4))
     
     def run(self, X, explain_X, process_data_fn, x_columns, n_samples, replacement_prob):
         self.data_generation(X, explain_X, process_data_fn, n_samples, replacement_prob)
         # self.variable_selection()
         self.structure_learning(x_columns)
-
-
-def draw_network(model) -> None:
-
-    '''
-    Draws network.
-    '''
-
-    DAG = nx.DiGraph()
-    DAG.add_nodes_from(model.nodes())
-    DAG.add_edges_from(model.edges())
-
-    pos = graphviz_layout(DAG, prog="dot")
-        
-    nx.draw(
-        DAG,
-        pos,
-        with_labels = True,
-        node_size = 2000,
-        node_color = "lightblue",
-        arrowsize = 20,
-        font_size = 12,
-        font_weight = "bold"
-    )
-
-    plt.show()
-
-def markov_blanket(model, target):
-    
-    model_ = copy.deepcopy(model)
-    blanket = model_.get_markov_blanket(target)
-
-    for node in list(model_.nodes()):
-        if node not in blanket and node != target:
-            model_.remove_node(node)
-
-    return model_
