@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from pgmpy.models import LinearGaussianBayesianNetwork
 from networkx.drawing.nx_agraph import graphviz_layout
 
+
 class SyntheticData:
 
     '''
@@ -74,29 +75,6 @@ class SyntheticData:
             sample = self.__forward_sample()
             datapoint = np.array([sample[key] for key in sample])
             self.dataset.append(datapoint)
-
-    def draw_network(self) -> None:
-
-        DAG = nx.DiGraph()
-        DAG.add_nodes_from(self.model.nodes())
-        DAG.add_edges_from(self.model.edges())
-
-        pos = graphviz_layout(DAG, prog="dot")
-        
-        nx.draw(
-            DAG,
-            pos,
-            with_labels = True,
-            node_size = 2000,
-            node_color = "lightblue",
-            arrowsize = 20,
-            font_size = 12,
-            font_weight = "bold"
-        )
-
-        structure_filename = os.path.join("networks", f"{self.identifier}_ground_network.png")
-        plt.savefig(structure_filename, bbox_inches = "tight")
-        plt.show()
     
     def save(self) -> None:
         
@@ -108,15 +86,48 @@ class SyntheticData:
         network_filename = os.path.join("networks", f"{self.identifier}_ground_network.pkl")
 
         if os.path.exists(data_filename):
-            print(f"Aborting: {self.identifier} dataset already exists.")
+            print(f"Ground-truth for {self.identifier} dataset already exists.")
         
         else:
             data_frame = pd.DataFrame(np.array(self.dataset), columns=list(self.model.nodes()))
             data_frame.to_csv(data_filename, index=False)
 
         if os.path.exists(network_filename):
-            print(f"Aborting: {self.identifier} ground truth network already exists.")
+            print(f"Ground-truth {self.identifier} ground truth network already exists.")
         
         else:
             with open(network_filename, "wb") as f:
                 pickle.dump(self.model, f)
+
+
+def get_target(model):
+    target_node = None
+    max_in_degree = -1
+    leaf_nodes = list(model.get_leaves())
+    in_degree_iterator = model.in_degree_iter()
+    
+    for node, in_degree in in_degree_iterator:
+        if node in leaf_nodes and in_degree > max_in_degree:
+            target_node = node
+            max_in_degree = in_degree
+
+    return target_node
+
+def split_data(model, data):
+
+    target_node = get_target(model)
+
+    X_columns = [column for column in data.columns.tolist() if column != target_node]
+    
+    X = data[X_columns].values
+    y = data[target_node].values
+    
+    return X, y, target_node
+
+def sample_datapoints(X, n):
+    
+    num_rows = X.shape[0]
+    random_indices = np.random.choice(num_rows, size = n, replace = False)
+    explain_X = X[random_indices]
+
+    return explain_X
