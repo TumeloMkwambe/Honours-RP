@@ -1,6 +1,6 @@
-wandb==0.21.3
 numpy==1.26.4
 pgmpy==1.0.0
 matplotlib==3.10.5
 jupyter==1.1.1
 tensorflow==2.20.0
+scikeras==0.13.0

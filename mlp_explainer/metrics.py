@@ -1,9 +1,7 @@
 import copy
 import numpy as np
 import networkx as nx
-from pgmpy.metrics import SHD
 import matplotlib.pyplot as plt
-from sklearn.metrics import f1_score
 from networkx.drawing.nx_agraph import graphviz_layout
 
 def draw_network(model) -> None:
@@ -42,19 +40,6 @@ def markov_blanket(model, target):
 
     return model_
 
-def get_f1_score(estimated_model, true_model):
-    
-    nodes = estimated_model.nodes()
-    
-    est_adj = nx.to_numpy_array(
-        estimated_model.to_undirected(), nodelist = nodes, weight = None
-    )
-    true_adj = nx.to_numpy_array(
-        true_model.to_undirected(), nodelist = nodes, weight = None
-    )
-
-    f1 = f1_score(np.ravel(true_adj), np.ravel(est_adj))
-    print("F1-score for the model skeleton: ", f1)
 
 def metrics(ground_bn, explainer_bn, target_node):
 
