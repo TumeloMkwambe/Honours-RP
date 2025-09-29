@@ -10,13 +10,24 @@ class Explainer:
         self.model = model
         self.data = None
 
-    def __data_generation(self, x, X_train, preprocessor, x_cols, y_col, n = 10, prob = 0.5):
+    def __data_generation(self, x: np.ndarray, X_train: np.ndarray, preproc, x_cols: list, y_col: str, n: int = 10, prob: float = 0.5):
+
+        '''
+        Args:
+            x: a single local datapoint forming the base reference from which we sample perturbed instances.
+            X_train: an array containing data used to train the model prior to preprocessing.
+            preproc: the function used to preprocess input data prior to a forward pass to the model.
+            x_cols: list of names of features.
+            y_col: name of target.
+            n: number of samples to draw from base reference local datapoint using perturbation scheme.
+            prob: probability of replacing a randomly drawn datapoint from the training data with values from the base reference local datapoint.
+        '''
 
         X = []
         Y = []
 
-        processed_x = preprocessor(x.reshape(1, -1))
-        y = self.model.predict(processed_x, verbose = 0)
+        proc_x = preproc.transform(x.reshape(1, -1))
+        y = self.model.predict(proc_x, verbose = 0)
         y = y.reshape(len(y[0]),)
 
         for i in range(n):
@@ -30,15 +41,13 @@ class Explainer:
             x_prime = np.where(mask, x, x_prime)
 
             # preprocess x_prime the same way as the training set and get a prediction
-            processed_x_prime = preprocessor(x_prime.reshape(1, -1))
-            y_prime = self.model.predict(processed_x_prime, verbose = 0)
+            proc_x_prime = preproc.transform(x_prime.reshape(1, -1))
+            y_prime = self.model.predict(proc_x_prime, verbose = 0)
             y_prime = y_prime.reshape(len(y_prime[0]),)
 
             # model returns probabilities, so we have to find the class with the maximum
-            # if prediction changed mask target value as 0 and 1 otherwise
-            # mask values in x_prime that are different from x's as 0 and 1 otherwise
-            y_prime = y_prime.argmax() == y.argmax()
-            x_prime = x_prime == x
+            y_prime = y_prime.argmax() == y.argmax() # 0 if target changed, else 1
+            x_prime = x_prime == x # 0 if feature value changed, else 1
 
             # add masked sample and prediction to respective collections
             X.append(x_prime.astype(int))
@@ -47,8 +56,8 @@ class Explainer:
         X = [X[i].astype(str) for i in range(len(X))]
         Y = [Y[i].astype(str) for i in range(len(Y))]
 
-        self.data = pd.DataFrame(self.__X, columns = x_cols)
-        self.data[y_col] = self.__Y
+        self.data = pd.DataFrame(X, columns = x_cols)
+        self.data[y_col] = Y
 
     def __variable_selection(self, target: str):
 
@@ -67,19 +76,19 @@ class Explainer:
         for node in S[target]:
             U |= S[node]
         
-        self.data = self.data[U]
+        self.data = self.data[list(U)]
 
     def __structure_learning(self) -> None:
 
         score = BIC(self.data)
         est = HillClimbSearch(data = self.data)
         
-        return est.estimate(scoring_method = score, max_indegree = 5, max_iter = int(1e3))
+        self.bn = est.estimate(scoring_method = score, max_indegree = 5, max_iter = int(1e3))
 
-    def explain(self, x, X_train, preprocessor, x_cols, y_col, n, prob) -> None:
+    def explain(self, x, X_train, preproc, x_cols, y_col, n, prob) -> None:
 
         x = np.asarray(x)
 
-        self.__data_generation(x, X_train, preprocessor, x_cols, y_col, n, prob)
+        self.__data_generation(x, X_train, preproc, x_cols, y_col, n, prob)
         self.__variable_selection(y_col)
         self.__structure_learning()

@@ -31,5 +31,5 @@ make venv
 ### 2. Activate Conda Environment
 conda activate venv
 
-### 3. Install Dependencies
+### 3. Install Dependencies (patience required)
 make install

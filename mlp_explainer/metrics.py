@@ -2,7 +2,6 @@ import copy
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
-from networkx.drawing.nx_agraph import graphviz_layout
 
 def draw_network(model) -> None:
 
@@ -14,17 +13,22 @@ def draw_network(model) -> None:
     DAG.add_nodes_from(model.nodes())
     DAG.add_edges_from(model.edges())
 
-    pos = graphviz_layout(DAG, prog="dot")
-        
+    pos = nx.drawing.nx_agraph.graphviz_layout(
+        DAG, 
+        prog = "dot", 
+        args = '-Gsep=1.5 -Gnodesep=0.5 -Granksep=1.0 -Gsize="10,8!"'
+    )
+
+    plt.figure(figsize = (12, 8)) 
+
     nx.draw(
         DAG,
         pos,
         with_labels = True,
-        node_size = 2000,
-        node_color = "lightblue",
-        arrowsize = 20,
-        font_size = 12,
-        font_weight = "bold"
+        node_size = 1500,
+        node_color="skyblue",
+        arrowsize = 5,
+        font_size = 6
     )
 
     plt.show()
@@ -53,7 +57,7 @@ def metrics(ground_bn, explainer_bn, target_node):
     intersection = len(np.intersect1d(ground_mb, explainer_mb, assume_unique = False, return_indices = False))
     union = len(np.union1d(ground_mb, explainer_mb))
     
-    print(f'Ground Markov Blanket: {ground_mb.get_markov_blanket(target_node)}')
+    print(f'Ground Markov Blanket: {ground_mb.get_markov_blanket(target_node)} \n')
     print(f'Explainer Markov Blanket: {explainer_mb.get_markov_blanket(target_node)} \n')
 
     print(f'Markov Blanket Accuracy: {intersection} / {union}')
