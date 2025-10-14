@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from pgmpy.estimators import PC
 from mlxtend.frequent_patterns import fpgrowth, association_rules
 
 class Explainer:
@@ -21,37 +22,47 @@ class Explainer:
         self.y_col = 'target'
         self.n_samples = n_samples
         self.rep_prob = rep_prob
-        
+
+        self.bn = None
         self.data = None
+        self.structure_data = None
         self.patterns = []
         self.relevance_dict = {col: 0 for col in self.x_cols}
 
     def __init_structures(self):
+        
         self.data = None
         self.patterns = []
         
     def __data_generation(self, x: np.ndarray):
 
-        y = self.model.predict(self.preprocessor(x.reshape(1, -1)), verbose = 0).squeeze(0)
-
-        samples_X = []
-        samples_Y = []
+        y = self.model.predict(self.preprocessor(x.reshape(1, -1)), verbose=0).squeeze(0)
+        y_argmax = y.argmax()
         
-        for i in range(self.n_samples):
-            
-            sample_x = self.X[np.random.randint(len(self.X))]
-            sample_x = np.where(np.random.rand(len(sample_x)) < self.rep_prob, x, sample_x)
-
-            sample_y = self.model.predict(self.preprocessor(sample_x.reshape(1, -1)), verbose = 0).squeeze(0)
-            
-            sample_y = sample_y.argmax() != y.argmax()
-            sample_x = sample_x != x
-            
-            samples_X.append(sample_x.astype(int))
-            samples_Y.append(sample_y.astype(int))
-            
-        self.data = pd.DataFrame(samples_X, columns = self.x_cols)
-        self.data[self.y_col] = samples_Y
+        random_indices = np.random.randint(len(self.X), size = self.n_samples)
+        samples_X_base = self.X[random_indices]
+        
+        replace_mask = np.random.rand(self.n_samples, samples_X_base.shape[1]) < self.rep_prob
+        
+        samples_X_generated = np.where(replace_mask, x, samples_X_base)
+        
+        preprocessed_batch = self.preprocessor(samples_X_generated)
+        
+        samples_Y_raw = self.model.predict(preprocessed_batch, verbose=0)
+        
+        samples_Y_argmax = samples_Y_raw.argmax(axis=1)
+        
+        samples_Y_bool = samples_Y_argmax != y_argmax
+        
+        samples_X_bool = samples_X_generated != x
+        
+        samples_X_int = samples_X_bool.astype(int)
+        samples_Y_int = samples_Y_bool.astype(int)
+        
+        self.data = pd.DataFrame(samples_X_int, columns = self.x_cols)
+        self.data[self.y_col] = samples_Y_int
+        
+        self.structure_data = pd.concat([self.structure_data, self.data], ignore_index = True)
 
     def fp_growth(self, data, class_):
 
@@ -100,14 +111,23 @@ class Explainer:
             features = tuple(idx['itemsets'])
             h_mean = idx['Harmonic Mean']
             n_features = len(features)
-            
-            for feature in features:
-                self.relevance_dict[feature] += h_mean / n_features
+
+            if n_features == 1:
+                for feature in features:
+                    self.relevance_dict[feature] += h_mean
+        
+        self.relevance_dict = dict(sorted(self.relevance_dict.items(), key = lambda item: item[1], reverse = True))
+
+    def __structure_learning(self):
+
+        data = self.structure_data[list(self.relevance_dict) + [self.y_col]].astype(str)
+        est = PC(data = data)
+        
+        self.bn = est.estimate(ci_test = "chi_square", return_type = 'dag')
 
     def forward(self, x) -> None:
 
         self.__init_structures()
-        
         self.__data_generation(x)
         
         for class_ in [0, 1]:
@@ -117,3 +137,4 @@ class Explainer:
             self.fp_growth(class_data, class_)
         
         self.__relevance_rank()
+        self.__structure_learning()
