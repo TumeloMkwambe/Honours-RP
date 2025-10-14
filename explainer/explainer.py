@@ -4,16 +4,8 @@ from pgmpy.estimators import PC
 from mlxtend.frequent_patterns import fpgrowth, association_rules
 
 class Explainer:
+    
     def __init__(self, model, X, preprocessor, n_samples = 100, rep_prob = 0.5):
-
-        '''
-        Args:
-            model: model
-            X: dataframe of X data (training, testing or all)
-            preprocessor: function used to preprocess data prior to model forward pass
-            n_samples: number of samples to generate for a single prediction explanation
-            rep_prob: probability at which each feature value of x datapoint should be replaced with a value from a sample
-        '''
 
         self.model = model
         self.X = X.to_numpy()
@@ -27,6 +19,7 @@ class Explainer:
         self.data = None
         self.structure_data = None
         self.patterns = []
+        self.count = 0
         self.relevance_dict = {col: 0 for col in self.x_cols}
 
     def __init_structures(self):
@@ -35,7 +28,7 @@ class Explainer:
         self.patterns = []
         
     def __data_generation(self, x: np.ndarray):
-
+        
         y = self.model.predict(self.preprocessor(x.reshape(1, -1)), verbose=0).squeeze(0)
         y_argmax = y.argmax()
         
@@ -65,18 +58,18 @@ class Explainer:
         self.structure_data = pd.concat([self.structure_data, self.data], ignore_index = True)
 
     def fp_growth(self, data, class_):
-
+        
         if class_ == 0:
             data = 1 - data
-            
+        
         data = data.astype(bool)
-
+        
         class_patterns = fpgrowth(data, min_support = 0.3, use_colnames = True)
         
         self.patterns.append(class_patterns)
 
     def __harmonic_merge(self):
-
+        
         self.patterns[0] = self.patterns[0].rename(columns = {'support': 'support_stable'})
         self.patterns[1] = self.patterns[1].rename(columns = {'support': 'support_unstable'})
         
@@ -91,7 +84,7 @@ class Explainer:
         
         support_0 = patterns_merged['support_stable']
         support_1 = patterns_merged['support_unstable']
-
+        
         denominator = support_0 + support_1
         patterns_merged['Harmonic Mean'] = (2 * support_0 * support_1 / denominator).mask(denominator == 0, 0)
         
@@ -103,30 +96,28 @@ class Explainer:
         return harmonic_rank[harmonic_rank['Harmonic Mean'] > 0.0]
 
     def __relevance_rank(self):
-
+        
         rank = self.__harmonic_merge()
-
+        
         for row, idx in rank.iterrows():
-    
+            
             features = tuple(idx['itemsets'])
             h_mean = idx['Harmonic Mean']
             n_features = len(features)
-
+            
             if n_features == 1:
                 for feature in features:
                     self.relevance_dict[feature] += h_mean
-        
-        self.relevance_dict = dict(sorted(self.relevance_dict.items(), key = lambda item: item[1], reverse = True))
 
-    def __structure_learning(self):
+    def __structure_learning(self, data):
 
-        data = self.structure_data[list(self.relevance_dict) + [self.y_col]].astype(str)
         est = PC(data = data)
         
         self.bn = est.estimate(ci_test = "chi_square", return_type = 'dag')
 
-    def forward(self, x) -> None:
+    def setup(self, x) -> None:
 
+        self.count += 1
         self.__init_structures()
         self.__data_generation(x)
         
@@ -137,4 +128,11 @@ class Explainer:
             self.fp_growth(class_data, class_)
         
         self.__relevance_rank()
-        self.__structure_learning()
+
+    def output(self, threshold):
+
+        self.relevance_dict = {key: self.relevance_dict[key] / self.count for key in self.relevance_dict}
+        self.relevance_dict = {key: self.relevance_dict[key] for key in self.relevance_dict if self.relevance_dict[key] > threshold}
+        data = self.structure_data[list(self.relevance_dict) + [self.y_col]].astype(str)
+        self.relevance_dict = dict(sorted(self.relevance_dict.items(), key = lambda item: item[1], reverse = True))
+        self.__structure_learning(data)
