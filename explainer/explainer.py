@@ -1,35 +1,35 @@
+import itertools
 import numpy as np
 import pandas as pd
-from pgmpy.estimators import PC
+from pgmpy.base import PDAG
+from pgmpy.estimators import PC, HillClimbSearch, ExpertKnowledge
 from mlxtend.frequent_patterns import fpgrowth, association_rules
 
 class Explainer:
     
-    def __init__(self, model, X, preprocessor, n_samples = 100, rep_prob = 0.5):
-
-        self.model = model
+    def __init__(self, model, X, target, preprocessor, n_samples = 100, rep_prob = 0.5):
+        
         self.X = X.to_numpy()
-        self.preprocessor = preprocessor
+        
         self.x_cols = X.columns
-        self.y_col = 'target'
+        self.y_col = target
+        
+        self.model = model
+        self.preprocessor = preprocessor
+        
         self.n_samples = n_samples
         self.rep_prob = rep_prob
-
-        self.bn = None
+        
+        
+        self.associations = None
         self.data = None
-        self.structure_data = None
-        self.patterns = []
-        self.count = 0
-        self.relevance_dict = {col: 0 for col in self.x_cols}
-
-    def __init_structures(self):
         
-        self.data = None
-        self.patterns = []
+        self.dag = None
+        self.pdag = None
         
-    def __data_generation(self, x: np.ndarray):
+    def data_generation(self, x):
         
-        y = self.model.predict(self.preprocessor(x.reshape(1, -1)), verbose=0).squeeze(0)
+        y = self.model.predict(self.preprocessor(x.reshape(1, -1)), verbose = 0).squeeze(0)
         y_argmax = y.argmax()
         
         random_indices = np.random.randint(len(self.X), size = self.n_samples)
@@ -41,9 +41,9 @@ class Explainer:
         
         preprocessed_batch = self.preprocessor(samples_X_generated)
         
-        samples_Y_raw = self.model.predict(preprocessed_batch, verbose=0)
+        samples_Y_raw = self.model.predict(preprocessed_batch, verbose = 0)
         
-        samples_Y_argmax = samples_Y_raw.argmax(axis=1)
+        samples_Y_argmax = samples_Y_raw.argmax(axis = 1)
         
         samples_Y_bool = samples_Y_argmax != y_argmax
         
@@ -54,85 +54,74 @@ class Explainer:
         
         self.data = pd.DataFrame(samples_X_int, columns = self.x_cols)
         self.data[self.y_col] = samples_Y_int
-        
-        self.structure_data = pd.concat([self.structure_data, self.data], ignore_index = True)
 
-    def fp_growth(self, data, class_):
+    def fp_growth(self, min_support, min_threshold):
         
-        if class_ == 0:
-            data = 1 - data
+        data = self.data.astype(bool)
         
-        data = data.astype(bool)
+        patterns = fpgrowth(data, min_support = min_support, use_colnames = True)
         
-        class_patterns = fpgrowth(data, min_support = 0.3, use_colnames = True)
-        
-        self.patterns.append(class_patterns)
+        self.associations = association_rules(patterns, metric = "confidence", min_threshold = min_threshold)
 
-    def __harmonic_merge(self):
+    def statistical_relevance(self):
         
-        self.patterns[0] = self.patterns[0].rename(columns = {'support': 'support_stable'})
-        self.patterns[1] = self.patterns[1].rename(columns = {'support': 'support_unstable'})
+        associations = self.associations[self.associations['consequents'] == frozenset({'bronc'})]
         
-        patterns_merged = pd.merge(
-            self.patterns[0],
-            self.patterns[1],
-            on = 'itemsets',
-            how = 'outer'
-        )
+        associations = associations.sort_values(by = 'confidence', ascending = False).reset_index(drop = True)
         
-        patterns_merged = patterns_merged.fillna(0)
+        redundant = set()
         
-        support_0 = patterns_merged['support_stable']
-        support_1 = patterns_merged['support_unstable']
-        
-        denominator = support_0 + support_1
-        patterns_merged['Harmonic Mean'] = (2 * support_0 * support_1 / denominator).mask(denominator == 0, 0)
-        
-        harmonic_rank = patterns_merged[['itemsets', 'support_stable', 'support_unstable', 'Harmonic Mean']].sort_values(
-            by = 'Harmonic Mean', 
-            ascending = False
-        )
-        
-        return harmonic_rank[harmonic_rank['Harmonic Mean'] > 0.0]
-
-    def __relevance_rank(self):
-        
-        rank = self.__harmonic_merge()
-        
-        for row, idx in rank.iterrows():
+        for i in range(len(associations)):
             
-            features = tuple(idx['itemsets'])
-            h_mean = idx['Harmonic Mean']
-            n_features = len(features)
+            if i in redundant:
+                continue
             
-            if n_features == 1:
-                for feature in features:
-                    self.relevance_dict[feature] += h_mean
-
-    def __structure_learning(self, data):
-
-        est = PC(data = data)
-        
-        self.bn = est.estimate(ci_test = "chi_square", return_type = 'dag')
-
-    def setup(self, x) -> None:
-
-        self.count += 1
-        self.__init_structures()
-        self.__data_generation(x)
-        
-        for class_ in [0, 1]:
+            super_ant = associations.loc[i, 'antecedents']
+            super_conf = associations.loc[i, 'confidence']
             
-            class_data = self.data.loc[self.data[self.y_col] == class_]
-            class_data = class_data.drop(self.y_col, axis = 1)
-            self.fp_growth(class_data, class_)
+            for j in range(len(associations)):
+                
+                if i == j or j in redundant:
+                    continue
+                
+                sub_ant = associations.loc[j, 'antecedents']
+                sub_conf = associations.loc[j, 'confidence']
+                
+                if sub_ant.issubset(super_ant) and sub_ant != super_ant and sub_conf >= super_conf:
+                    
+                    redundant.add(i)
+                    break
         
-        self.__relevance_rank()
+        associations = associations.drop(index = list(redundant)).reset_index(drop = True)
+        
+        self.associations = associations[['antecedents', 'consequents', 'support', 'confidence']]
 
-    def output(self, threshold):
+    def structures(self):
+        
+        nodes = set()
+        edges = set()
+        
+        for i in range(len(self.associations)):
+            
+            ant_nodes = list(self.associations.loc[i, 'antecedents'])
+            ant_edges = list(itertools.combinations(ant_nodes + [self.y_col], 2))
+            
+            nodes.update(ant_nodes)
+            edges.update(ant_edges)
+        
+        self.pdag = PDAG(undirected_ebunch = list(edges))
+        
+        forbidden_edges = [(self.y_col, node) for node in nodes]
+        
+        no_child_constraint = ExpertKnowledge(forbidden_edges = forbidden_edges)
 
-        self.relevance_dict = {key: self.relevance_dict[key] / self.count for key in self.relevance_dict}
-        self.relevance_dict = {key: self.relevance_dict[key] for key in self.relevance_dict if self.relevance_dict[key] > threshold}
-        data = self.structure_data[list(self.relevance_dict) + [self.y_col]].astype(str)
-        self.relevance_dict = dict(sorted(self.relevance_dict.items(), key = lambda item: item[1], reverse = True))
-        self.__structure_learning(data)
+        est = HillClimbSearch(data = self.data[list(nodes) + [self.y_col]])
+
+        self.dag = est.estimate(scoring_method = "bic-d", expert_knowledge = no_child_constraint)
+        
+    def explain(self, x, min_support, min_threshold):
+        
+        self.data_generation(x)
+        self.fp_growth(min_support, min_threshold)
+        self.statistical_relevance()
+        self.structures()
