@@ -26,6 +26,16 @@ class Explainer:
         
         self.dag = None
         self.pdag = None
+
+        self.relevance_dict = {col: 0 for col in self.x_cols}
+
+    def init_structures(self):
+
+        self.associations = None
+        self.data = None
+        
+        self.dag = None
+        self.pdag = None
         
     def data_generation(self, x):
         
@@ -65,12 +75,12 @@ class Explainer:
 
     def statistical_relevance(self):
         
-        associations = self.associations[self.associations['consequents'] == frozenset({'bronc'})]
+        associations = self.associations[self.associations['consequents'] == frozenset({self.y_col})]
         
         associations = associations.sort_values(by = 'confidence', ascending = False).reset_index(drop = True)
         
         redundant = set()
-        
+        '''
         for i in range(len(associations)):
             
             if i in redundant:
@@ -91,10 +101,24 @@ class Explainer:
                     
                     redundant.add(i)
                     break
-        
+        '''
         associations = associations.drop(index = list(redundant)).reset_index(drop = True)
         
         self.associations = associations[['antecedents', 'consequents', 'support', 'confidence']]
+
+    def relevance_ranking(self):
+
+        for i, row in self.associations.iterrows():
+            
+            features = tuple(row['antecedents'])
+            
+            confidence = row['confidence']
+            
+            n_features = len(features)
+                    
+            for feature in features:
+                
+                self.relevance_dict[feature] += confidence / n_features
 
     def structures(self):
         
@@ -111,17 +135,14 @@ class Explainer:
         
         self.pdag = PDAG(undirected_ebunch = list(edges))
         
-        forbidden_edges = [(self.y_col, node) for node in nodes]
-        
-        no_child_constraint = ExpertKnowledge(forbidden_edges = forbidden_edges)
-
-        est = HillClimbSearch(data = self.data[list(nodes) + [self.y_col]])
-
-        self.dag = est.estimate(scoring_method = "bic-d", expert_knowledge = no_child_constraint)
-        
     def explain(self, x, min_support, min_threshold):
-        
+
+        self.init_structures()
         self.data_generation(x)
         self.fp_growth(min_support, min_threshold)
         self.statistical_relevance()
+        self.relevance_ranking()
         self.structures()
+        self.relevance_dict = dict(sorted(self.relevance_dict.items(), key = lambda item: item[1], reverse = True))
+        
+        return self.relevance_dict
