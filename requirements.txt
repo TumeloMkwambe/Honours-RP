@@ -6,3 +6,4 @@ tensorflow==2.20.0
 scikeras==0.13.0
 wandb==0.22.0
 mlxtend==0.23.4
+ucimlrepo==0.0.7
