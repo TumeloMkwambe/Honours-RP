@@ -119,7 +119,8 @@ class Explainer:
             for feature in features:
                 
                 self.relevance_dict[feature] += confidence / n_features
-
+        
+    '''
     def structures(self):
         
         nodes = set()
@@ -134,6 +135,7 @@ class Explainer:
             edges.update(ant_edges)
         
         self.pdag = PDAG(undirected_ebunch = list(edges))
+    '''
         
     def explain(self, x, min_support, min_threshold):
 
@@ -142,7 +144,7 @@ class Explainer:
         self.fp_growth(min_support, min_threshold)
         self.statistical_relevance()
         self.relevance_ranking()
-        self.structures()
+        #self.structures()
         self.relevance_dict = dict(sorted(self.relevance_dict.items(), key = lambda item: item[1], reverse = True))
         
         return self.relevance_dict
