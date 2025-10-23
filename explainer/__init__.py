@@ -1,1 +1,1 @@
-__name__ = "mlp_explainer"
+__name__ = "explainer"
