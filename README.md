@@ -1,4 +1,4 @@
-# Project Tsuki No Me
+# Honours Research Project
 
 # Project Setup
 
