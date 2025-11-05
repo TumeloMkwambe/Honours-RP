@@ -1,3 +1,4 @@
+import plotly.graph_objects as go
 import copy
 import wandb
 import numpy as np
@@ -70,7 +71,7 @@ def metrics(ground_bn, explainer_bn, target_node):
     draw_network(explainer_mb)
 
 
-def local_fidelity(instance, training_data, feature_set, model, n_trials):
+def local_fidelity(instance, training_data, feature_set, feature_names, model, n_trials):
 
     og_distro = model.predict_proba(instance.reshape(1, -1))[0]
 
