@@ -8,3 +8,4 @@ wandb==0.22.0
 mlxtend==0.23.4
 ucimlrepo
 lime
+plotly
