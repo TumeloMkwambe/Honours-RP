@@ -45,10 +45,7 @@ def markov_blanket(model, target):
     return model_
 
 
-def metrics(ground_bn, explainer_bn, target_node):
-    
-    ground_mb = markov_blanket(ground_bn, target_node)
-    explainer_mb = markov_blanket(explainer_bn, target_node)
+def metrics(ground_mb, explainer_mb, target_node):
     
     ground_features = ground_mb.get_markov_blanket(target_node)
     explainer_features = explainer_mb.get_markov_blanket(target_node)
@@ -85,7 +82,7 @@ def in_distribution(instance, training_data, indices, radius = 0):
 
 def distribution_drift(instance, training_data, feature_set, feature_names, model, n_trials):
 
-    og_distro = model.predict_proba(instance.reshape(1, -1))[0]
+    og_distro = model(instance.reshape(1, -1)).numpy()[0]
 
     feature_indices = [feature_names.index(feature) for feature in feature_set]
 
@@ -111,7 +108,7 @@ def distribution_drift(instance, training_data, feature_set, feature_names, mode
 
     candidates[:, feature_indices] = instance[feature_indices][None, :]
 
-    new_distros = model.predict_proba(candidates)
+    new_distros = model(candidates).numpy()
 
     return new_distros, og_distro
 
@@ -122,6 +119,37 @@ def average_distribution_drift(og_distro, new_distros):
 
     avg_js = np.mean(js_values)
 
-    return avg_js
+    return avg_js, js_values
 
+
+def fidelity_plot(new_distros, og_distro, title):
+    
+    fig = go.Figure()
+    
+    for distro in new_distros:
+    
+        fig.add_trace(go.Scatter(
+            x = np.arange(new_distros.shape[1]),
+            y = distro,
+            mode = 'lines',
+            line = dict(color = 'rgba(150, 150, 150, 0.5)'),
+            showlegend = False
+        ))
+    
+    fig.add_trace(go.Scatter(
+        x = np.arange(new_distros.shape[1]),
+        y = og_distro,
+        mode = 'lines+markers',
+        name = 'Original Distribution',
+        line = dict(color = '#004aad', width = 3)
+    ))
+    
+    fig.update_layout(
+        title = f'{title} Class Distribution Drift',
+        xaxis_title = 'Class Index',
+        yaxis_title = 'Predicted Probability',
+        template = 'simple_white'
+    )
+
+    fig.show()
 
