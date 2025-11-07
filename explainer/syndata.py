@@ -23,7 +23,7 @@ class SyntheticData:
         self.dataset = []
         self.model = self.__create_network()
 
-    def __create_network(self) -> LinearGaussianBayesianNetwork:
+    def __create_network(self):
 
         '''
         Objective: creates a Linear Gaussian Bayesian Network with random structure and parameters.

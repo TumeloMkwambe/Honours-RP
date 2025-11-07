@@ -1,9 +1,10 @@
 import copy
-import wandb
 import numpy as np
+import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+import plotly.express as px
 from scipy.spatial.distance import jensenshannon
 
 def draw_network(model):
@@ -45,7 +46,7 @@ def markov_blanket(model, target):
     return model_
 
 
-def metrics(ground_mb, explainer_mb, target_node):
+def mb_accuracy(ground_mb, explainer_mb, target_node):
     
     ground_features = ground_mb.get_markov_blanket(target_node)
     explainer_features = explainer_mb.get_markov_blanket(target_node)
@@ -53,24 +54,17 @@ def metrics(ground_mb, explainer_mb, target_node):
     intersection = len(np.intersect1d(ground_features, explainer_features, assume_unique = False, return_indices = False))
     union = len(np.union1d(ground_features, explainer_features))
     
-    print(f'Ground Markov Blanket: {ground_features} \n')
-    print(f'Explainer Markov Blanket: {explainer_features} \n')
-    
-    print(f'Markov Blanket Accuracy: {intersection} / {union}')
-    
-    print(f'Ground Markov Blanket: \n')
-    draw_network(ground_mb)
-    
-    print(f'Explainer Markov Blanket: \n')
-    draw_network(explainer_mb)
+    accuracy = intersection / union
+
+    return accuracy
 
 
 def in_distribution(instance, training_data, indices, radius = 0):
-
+    
     diffs = np.sum(training_data[:, indices] != instance[indices], axis = 1)
-
+    
     mask = diffs <= radius
-
+    
     if not np.any(mask):
 
         return None
@@ -100,9 +94,11 @@ def distribution_drift(instance, training_data, feature_set, feature_names, mode
 
         radius += 1
 
-        if radius > len(feature_indices) / 2:
+        '''
+        if radius > len(feature_indices):
 
             raise RuntimeError(f"Not enough matching in distribution candidates even up to radius {radius}, reduce n_trials.")
+        '''
 
     candidates = candidates[:n_trials].copy()
 
@@ -113,13 +109,33 @@ def distribution_drift(instance, training_data, feature_set, feature_names, mode
     return new_distros, og_distro
 
 
-def average_distribution_drift(og_distro, new_distros):
+def average_distribution_drift(og_distro, new_distros, eps = 1e-12):
 
-    js_values = [jensenshannon(og_distro, new_d) ** 2 for new_d in new_distros]
+    og_distro = np.asarray(og_distro, dtype = np.float64)
+    og_distro = (og_distro + eps) / (og_distro.sum() + eps * len(og_distro))
+
+    js_values = []
+    
+    for new_d in new_distros:
+
+        new_d = np.asarray(new_d, dtype = np.float64)
+        new_d = (new_d + eps) / (new_d.sum() + eps * len(new_d))
+        
+        js_values.append(jensenshannon(og_distro, new_d) ** 2)
 
     avg_js = np.mean(js_values)
 
     return avg_js, js_values
+
+
+def divergence_plot(js_values, method_names):
+
+    data = pd.DataFrame(js_values.T, columns = [f'{name}' for name in method_names])
+    data_melt = data.melt(var_name = 'Method', value_name = 'Jensen-Shannon Divergence')
+    
+    fig = px.box(data_melt, x = 'Method', y = 'Jensen-Shannon Divergence', title = 'Jensen-Shannon Divergence per Method')
+    
+    fig.show()
 
 
 def fidelity_plot(new_distros, og_distro, title):
