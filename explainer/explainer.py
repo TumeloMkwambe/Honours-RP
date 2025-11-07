@@ -49,16 +49,16 @@ class Explainer:
 
         data = self.local_data
         
-        pc_est = PC(data) # constraint-based
+        #pc_est = PC(data) # constraint-based
         bic_est = HillClimbSearch(data) # score-based
         
-        pc_dag = pc_est.estimate(ci_test = "chi_square", return_type = "dag")
+        #pc_dag = pc_est.estimate(ci_test = "chi_square", return_type = "dag")
         bic_dag = bic_est.estimate(scoring_method = "bic-d")
 
-        self.pc_mb = markov_blanket(pc_dag, self.target_name)
+        #self.pc_mb = markov_blanket(pc_dag, self.target_name)
         self.bic_mb = markov_blanket(bic_dag, self.target_name)
 
-        self.pc_blanket = self.pc_mb.get_markov_blanket(self.target_name)
+        #self.pc_blanket = self.pc_mb.get_markov_blanket(self.target_name)
         self.bic_blanket = self.bic_mb.get_markov_blanket(self.target_name)
         
     def log_data(self, instance):
