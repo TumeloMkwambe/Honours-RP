@@ -2,5 +2,5 @@ wandb/
 .venv/
 venv/
 __pycache__/
-bayes_explainer/__pycache__/
+modules/__pycache__/
 .ipynb_checkpoints/
