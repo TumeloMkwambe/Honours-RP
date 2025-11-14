@@ -1,5 +1,7 @@
 # Honours Research Project
 
+![Asia_JS_F1](./data/results/asia.png)
+
 ## Setup Instructions
 
 ### 1. Setup Environment & Install Dependencies
