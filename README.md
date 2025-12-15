@@ -1,6 +1,6 @@
 # Honours Research Project
 
-![Asia_JS_F1](./data/results/asia.png)
+![Research Poster](./1D546C.png)
 
 ## Setup Instructions
 
